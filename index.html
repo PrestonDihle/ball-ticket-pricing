@@ -164,7 +164,7 @@ table { border-collapse: collapse; width: 100%; }
       <h1>Ball Ticket Pricing</h1>
       <p class="sub">Change any cost or attendance figure to see what each ticket needs to cost. Amounts are in euros.</p>
     </div>
-    <button class="reset" id="reset" type="button">Reset to worksheet baseline</button>
+    <button class="reset" id="reset" type="button">Reset to baseline</button>
   </header>
 </div>
 
@@ -243,14 +243,14 @@ table { border-collapse: collapse; width: 100%; }
 /* ---------- Model ---------- */
 const VENUE = 11808.67;
 const CEILING = 624, CHECKPOINT = 480;
-const BASE = { tickets:600, price:90, meal:45, wine:4, gift:4, kegs:4, kegPrice:150,
-  busA:2035, ridersA:50, busG:2475, ridersG:20, busW:2485, ridersW:50, fare:0,
-  children:200, childRate:30, childFee:20,
+const BASE = { baseline:2, tickets:600, price:85, meal:45, wine:2, gift:4, kegs:4, kegPrice:150,
+  busA:2035, ridersA:50, busG:2475, ridersG:20, busW:2485, ridersW:50, fare:20,
+  children:50, childRate:80, childFee:20,
   entertainment:5000, mallets:180, raffle:1200, unplanned:3000,
   vipCount:50, vipPremium:100, donations:5000, surplus:0, rate:1.1179, mode:"single",
-  /* Placeholder groups and mix, not from the worksheet. Every group starts at the worksheet's €90. */
+  /* Placeholder groups and mix, not from the worksheet. Every group starts at the baseline price. */
   tiers:[["E-1 to E-4",180],["E-5 to E-6",150],["E-7 to E-9",72],["WO1 to CW2",12],["CW3 to CW5",6],["O-1 to O-3",60],["O-4 to O-5",24],["O-6 and above",6],["Civilians",90]]
-    .map(([name, weight]) => ({ name, weight, price:90 })) };
+    .map(([name, weight]) => ({ name, weight, price:85 })) };
 const fresh = () => JSON.parse(JSON.stringify(BASE));
 
 /*MODEL-START*/
@@ -320,7 +320,13 @@ const GROUPS = [
 ];
 const KEY = "ball-ticket-pricing-v1";
 let state = fresh();
-try { state = { ...fresh(), ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch (e) {}
+try { state = { ...fresh(), baseline: 1, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch (e) {}
+/* Entries saved under the first baseline: figures still at the old default move to the new one, and edited figures stay. */
+if (state.baseline === 1) {
+  Object.entries({ price: 90, wine: 4, fare: 0, children: 200, childRate: 30 }).forEach(([k, old]) => { if (state[k] === old) state[k] = BASE[k]; });
+  state.tiers.forEach(t => { if (t.price === 90) t.price = BASE.price; });
+  state.baseline = 2;
+}
 /* Entries saved before the warrant officer split: the old group becomes two at the same price. */
 state.tiers = state.tiers.flatMap(t => t.name === "WO1 to CW5" ? [{ ...t, name: "WO1 to CW2", weight: t.weight * 2 / 3 }, { ...t, name: "CW3 to CW5", weight: t.weight / 3 }] : [t]);
 state.tickets = Math.min(state.tickets, CEILING);
@@ -441,7 +447,7 @@ function render(from) {
   const d = m.breakEven - base.breakEven;
   $("beSub").textContent = state.surplus > 0
     ? `${money(m.targetPrice)} to end with ${money(state.surplus, 0)}`
-    : Math.abs(d) < .005 ? "Matches the worksheet" : `${signed(d, 2)} vs. the worksheet's ${money(base.breakEven)}`;
+    : Math.abs(d) < .005 ? "Matches the baseline" : `${signed(d, 2)} vs. the baseline's ${money(base.breakEven)}`;
 
   const rounded = Math.ceil(Math.max(0, +m.targetPrice.toFixed(2)) / 5) * 5;
   const r = $("round");

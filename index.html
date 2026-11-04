@@ -245,7 +245,7 @@ const BASE = { tickets:600, price:90, meal:45, wine:4, gift:4, kegs:4, kegPrice:
   entertainment:5000, mallets:180, raffle:1200, unplanned:3000,
   vipCount:50, vipPremium:100, donations:5000, surplus:0, mode:"single",
   /* Placeholder groups and mix, not from the worksheet. Every group starts at the worksheet's €90. */
-  tiers:[["E-1 to E-4",180],["E-5 to E-6",150],["E-7 to E-9",72],["WO1 to CW5",18],["O-1 to O-3",60],["O-4 to O-5",24],["O-6 and above",6],["Civilians",90]]
+  tiers:[["E-1 to E-4",180],["E-5 to E-6",150],["E-7 to E-9",72],["WO1 to CW2",12],["CW3 to CW5",6],["O-1 to O-3",60],["O-4 to O-5",24],["O-6 and above",6],["Civilians",90]]
     .map(([name, weight]) => ({ name, weight, price:90 })) };
 const fresh = () => JSON.parse(JSON.stringify(BASE));
 
@@ -317,6 +317,8 @@ const GROUPS = [
 const KEY = "ball-ticket-pricing-v1";
 let state = fresh();
 try { state = { ...fresh(), ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch (e) {}
+/* Entries saved before the warrant officer split: the old group becomes two at the same price. */
+state.tiers = state.tiers.flatMap(t => t.name === "WO1 to CW5" ? [{ ...t, name: "WO1 to CW2", weight: t.weight * 2 / 3 }, { ...t, name: "CW3 to CW5", weight: t.weight / 3 }] : [t]);
 state.tickets = Math.min(state.tickets, CEILING);
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
 

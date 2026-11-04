@@ -63,10 +63,10 @@ h1 { font-size: 30px; line-height: 1.1; letter-spacing: .01em; }
 
 main { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 24px; align-items: start; padding-block: 20px 40px; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
-.inputs { min-width: 0; }
+.inputs { min-width: 0; overflow: hidden; }
 fieldset { border: 0; margin: 0; padding: 14px 16px 16px; display: grid; gap: 12px; }
 fieldset + fieldset { border-top: 1px solid var(--line); }
-legend { float: left; width: 100%; padding: 0; font: 600 15px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+legend { float: left; width: calc(100% + 32px); margin: -14px -16px 0; padding: 7px 16px; background: var(--band); color: var(--brass); font: 600 15px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; }
 legend + * { clear: both; }
 .field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; }
 .field label { font-weight: 600; min-width: 0; }
@@ -115,8 +115,6 @@ table { border-collapse: collapse; width: 100%; }
 .jumps button { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 3px 8px; font-weight: 600; }
 .jumps button:hover { border-color: var(--navy); }
 .jumps button[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: var(--surface); }
-
-.notes { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 80ch; }
 
 @media (max-width: 1000px) {
   main { grid-template-columns: minmax(0, 1fr); }
@@ -190,21 +188,6 @@ table { border-collapse: collapse; width: 100%; }
         <p>Same layout as your spreadsheet, updated live. Per-ticket is the amount divided by tickets sold.</p>
         <div class="scroll"><table id="ledger"></table></div>
       </section>
-      <section class="card panel">
-        <h2>How the worksheet was read</h2>
-        <p>The sheet gives totals and a few notes. These rates were worked out from it so that each figure can move. Check them against what you know.</p>
-        <ul class="notes">
-          <li><b>Meal, €45 per guest:</b> €27,000 ÷ 600 tickets.</li>
-          <li><b>Wine, €4 per guest:</b> stated in the sheet.</li>
-          <li><b>Table gifts, €4 per guest:</b> €2,400 ÷ 600. If gifts are bought per table, this cost will not track tickets this closely.</li>
-          <li><b>Beer, €150 per keg:</b> €600 ÷ 4 kegs.</li>
-          <li><b>VIP, 50 guests:</b> €5,000 ÷ the €100 upgrade. VIPs are counted within tickets sold.</li>
-          <li><b>Childcare, 200 children at €30 each:</b> €4,000 ÷ the €20 parent fee, then €6,000 ÷ 200. The sheet's childcare row also says "50xpassengers", which doesn't fit 200 children, so confirm this headcount.</li>
-          <li><b>Bus riders, 50 / 20 / 50:</b> from the notes beside each bus, read as riders per bus. Bus costs stay flat when riders change. The fare starts at €0 because the sheet shows no bus fare.</li>
-          <li><b>Checkpoint at 480, ceiling at 624:</b> ticket sales can't go above 624. The checkpoint is a jump point for the 480 seating arrangement, and it changes only the ticket count.</li>
-          <li><b>Stays flat as tickets change:</b> venue, buses, childcare, beer, entertainment, keg mallets, raffle gifts and unplanned expenses.</li>
-        </ul>
-      </section>
     </div>
   </main>
 </div>
@@ -262,13 +245,13 @@ function ticketsToBreakEven(p) {
 /* ---------- Inputs ---------- */
 const GROUPS = [
   ["Attendance", [["tickets","Tickets sold","",100,CEILING,4]]],
+  ["Funding", [["vipCount","VIP guests","",0,200,5],["vipPremium","VIP extra charge","€",0,250,5],["donations","Donations","€",0,25000,250]]],
+  ["Goal", [["surplus","Surplus to end with","€",0,20000,250]]],
   ["Venue", "venue"],
   ["Food and drink", [["meal","Meal per guest","€",20,120,1],["wine","Wine per guest","€",0,20,.5],["kegs","Beer kegs","",0,12,1],["kegPrice","Cost per keg","€",50,400,5]]],
   ["Buses", [["busA","Ansbach bus cost","€",0,5000,5],["ridersA","Ansbach riders","",0,100,1],["busG","Grafenwöhr bus cost","€",0,5000,5],["ridersG","Grafenwöhr riders","",0,100,1],["busW","Wiesbaden bus cost","€",0,5000,5],["ridersW","Wiesbaden riders","",0,100,1],["fare","Bus fare per rider","€",0,60,1]]],
   ["Childcare", [["children","Children","",0,400,5],["childRate","Cost per child","€",0,100,1],["childFee","Parent fee per child","€",0,60,1]]],
   ["Entertainment and extras", [["entertainment","Entertainment","€",0,15000,100],["gift","Table gifts per guest","€",0,15,.5],["mallets","Keg mallets","€",0,500,10],["raffle","Raffle gifts","€",0,5000,50],["unplanned","Unplanned expenses","€",0,10000,100]]],
-  ["Funding", [["vipCount","VIP guests","",0,200,5],["vipPremium","VIP extra charge","€",0,250,5],["donations","Donations","€",0,25000,250]]],
-  ["Goal", [["surplus","Surplus to end with","€",0,20000,250]]],
 ];
 const KEY = "ball-ticket-pricing-v1";
 let state = { ...BASE };

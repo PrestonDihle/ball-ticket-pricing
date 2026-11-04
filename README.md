@@ -17,10 +17,10 @@ The ticket price in the top band also shows in US dollars. The rate starts at $1
 
 ## Pricing by rank
 
-Switch the Pricing model card to **By rank** to set a separate price and guest count for each rank group and for civilians. Groups can be renamed, added or removed.
+Switch the Pricing model card to **By rank** to set a separate price and share of attendance for each rank group and for civilians. Groups can be renamed, added or removed.
 
-- **Placeholders:** the worksheet has no rank data, so the starting groups and guest counts are placeholders. Every group starts at the current single price, which gives the same result as one price.
-- **Guest counts:** typing a count updates tickets sold to the total of all groups, up to the 624 ceiling. Moving tickets sold keeps the groups in the same proportions, rounded to whole guests.
+- **Placeholders:** the worksheet has no rank data, so the starting groups and shares are placeholders. Every group starts at the current single price, which gives the same result as one price.
+- **Shares:** each group's share is a percentage of tickets sold, and guest counts are worked out from it, rounded to whole guests. If the shares don't add up to 100%, the page says so, scales them in proportion so every ticket is counted, and offers a button to rewrite them to 100%.
 - **VIP extra charge:** this still applies on top of rank prices, so set VIP guests to 0 if a rank price already includes it.
 
 ## How the worksheet was read

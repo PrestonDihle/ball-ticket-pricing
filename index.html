@@ -57,6 +57,9 @@ h1 { font-size: 30px; line-height: 1.1; letter-spacing: .01em; }
 .price-row span { font: 700 36px/1.1 var(--display); color: var(--brass); }
 #price { width: 4.2ch; min-width: 92px; background: transparent; border: 0; border-bottom: 2px solid var(--brass); color: var(--brass); font: 700 36px/1.1 var(--display); padding: 0; color-scheme: dark; }
 #priceRange { width: 100%; accent-color: var(--brass); margin: 4px 0 2px; }
+.usd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; margin-top: 1px; }
+.usd b { color: var(--band-ink); font-size: 15px; font-weight: 700; }
+#rate { width: 8ch; background: transparent; border: 0; border-bottom: 1px solid var(--band-muted); color: var(--band-ink); font: inherit; padding: 0; color-scheme: dark; }
 #round { background: none; border: 0; padding: 0; color: var(--brass); text-decoration: underline; text-underline-offset: 2px; font-size: 13px; text-align: left; }
 #round:disabled { color: var(--band-muted); text-decoration: none; cursor: default; }
 #avgPrice { font: 700 36px/1.1 var(--display); color: var(--brass); }
@@ -177,6 +180,7 @@ table { border-collapse: collapse; width: 100%; }
       <span class="eyebrow" id="avgLabel" hidden>Average ticket price</span>
       <div class="price-row" id="priceSingle"><span>€</span><input id="price" type="number" min="0" step="1" inputmode="decimal"></div>
       <span id="avgPrice" hidden></span>
+      <small class="usd"><b id="usd"></b><span>at $</span><input id="rate" data-k="rate" type="number" min="0" step="0.0001" inputmode="decimal" aria-label="US dollars per euro" title="Starts at the European Central Bank rate for 3 Nov 2026"><span>per €</span></small>
       <input id="priceRange" type="range" min="20" max="200" step="1" aria-label="Your ticket price slider">
       <button id="round" type="button"></button>
     </div>
@@ -243,7 +247,7 @@ const BASE = { tickets:600, price:90, meal:45, wine:4, gift:4, kegs:4, kegPrice:
   busA:2035, ridersA:50, busG:2475, ridersG:20, busW:2485, ridersW:50, fare:0,
   children:200, childRate:30, childFee:20,
   entertainment:5000, mallets:180, raffle:1200, unplanned:3000,
-  vipCount:50, vipPremium:100, donations:5000, surplus:0, mode:"single",
+  vipCount:50, vipPremium:100, donations:5000, surplus:0, rate:1.1179, mode:"single",
   /* Placeholder groups and mix, not from the worksheet. Every group starts at the worksheet's €90. */
   tiers:[["E-1 to E-4",180],["E-5 to E-6",150],["E-7 to E-9",72],["WO1 to CW2",12],["CW3 to CW5",6],["O-1 to O-3",60],["O-4 to O-5",24],["O-6 and above",6],["Civilians",90]]
     .map(([name, weight]) => ({ name, weight, price:90 })) };
@@ -429,6 +433,8 @@ function render(from) {
   ["priceLabel", "priceSingle", "priceRange"].forEach(id => { $(id).hidden = tiered; });
   $("avgLabel").hidden = $("avgPrice").hidden = !tiered;
   $("avgPrice").textContent = money(m.avgPrice);
+  $("usd").textContent = "≈ $" + (m.avgPrice * state.rate).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if ($("rate") !== from) $("rate").value = state.rate;
   document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === state.mode)));
 
   $("be").textContent = money(m.breakEven);

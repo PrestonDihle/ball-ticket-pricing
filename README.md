@@ -11,6 +11,10 @@ The starting figures come from the ball funding and cost worksheet: €66,583.67
 - Venue cost is fixed at €11,808.67.
 - Ticket sales are capped at 624, with a jump point at 480 for the alternate seating arrangement.
 
+## Dollar conversion
+
+The ticket price in the top band also shows in US dollars. The rate starts at $1.1179 per euro, the European Central Bank rate for 3 November 2026, and doesn't update by itself. Edit it in the band when you need a newer rate. All other amounts stay in euros.
+
 ## Pricing by rank
 
 Switch the Pricing model card to **By rank** to set a separate price and guest count for each rank group and for civilians. Groups can be renamed, added or removed.

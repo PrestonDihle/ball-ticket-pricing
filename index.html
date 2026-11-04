@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>body { margin: 0; }</style>
+<title>Ball Ticket Pricing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Layout: a sticky pricing band over two columns, inputs on the left and results on the right. */
+:root {
+  --bg: #f1f3f7; --surface: #fcfcfe; --ink: #141c2e; --muted: #555e75; --line: #d7dce6;
+  --navy: #1f3f7a; --band: #16284a; --band-ink: #f4f6fb; --band-muted: #b6c1d8; --brass: #e0b95a;
+  --gain: #2a78d6; --loss: #eb6834; --good: #17693f; --bad: #b3361f; --field: #ffffff;
+  --display: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10141d; --surface: #181d29; --ink: #eef0f6; --muted: #a4adc2; --line: #2d3445;
+    --navy: #7ea6ec; --band: #0b1324; --band-ink: #f4f6fb; --band-muted: #a9b5cd; --brass: #e0b95a;
+    --gain: #3987e5; --loss: #d95926; --good: #62c992; --bad: #f08a72; --field: #10141d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10141d; --surface: #181d29; --ink: #eef0f6; --muted: #a4adc2; --line: #2d3445;
+  --navy: #7ea6ec; --band: #0b1324; --band-ink: #f4f6fb; --band-muted: #a9b5cd; --brass: #e0b95a;
+  --gain: #3987e5; --loss: #d95926; --good: #62c992; --bad: #f08a72; --field: #10141d;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 400 15px/1.45 var(--body); font-variant-numeric: tabular-nums; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--band); }
+.wrap { max-width: 1280px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; margin: 0; text-wrap: balance; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+
+header { padding-block: 18px 14px; }
+.head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: end; justify-content: space-between; }
+h1 { font-size: 30px; line-height: 1.1; letter-spacing: .01em; }
+.sub { color: var(--muted); margin: 2px 0 0; }
+.reset { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 6px 12px; font-weight: 600; }
+.reset:hover { border-color: var(--navy); }
+
+.band { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--band); color: var(--band-ink); }
+.band .wrap { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 24px; padding-block: 12px; }
+.tile { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tile + .tile { border-left: 1px solid rgba(255,255,255,.16); padding-left: 24px; }
+.eyebrow { font: 600 13px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--band-muted); }
+.big { font: 700 36px/1.1 var(--display); }
+.tile small { font-size: 13px; color: var(--band-muted); line-height: 1.3; }
+.price-row { display: flex; align-items: center; gap: 4px; }
+.price-row span { font: 700 36px/1.1 var(--display); color: var(--brass); }
+#price { width: 4.2ch; min-width: 92px; background: transparent; border: 0; border-bottom: 2px solid var(--brass); color: var(--brass); font: 700 36px/1.1 var(--display); padding: 0; color-scheme: dark; }
+#priceRange { width: 100%; accent-color: var(--brass); margin: 4px 0 2px; }
+#round { background: none; border: 0; padding: 0; color: var(--brass); text-decoration: underline; text-underline-offset: 2px; font-size: 13px; text-align: left; }
+#round:disabled { color: var(--band-muted); text-decoration: none; cursor: default; }
+.band :focus-visible { outline-color: var(--band-ink); }
+.pill { display: inline-block; font: 600 12px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 3px; padding: 3px 5px; vertical-align: 6px; margin-left: 6px; }
+
+main { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 24px; align-items: start; padding-block: 20px 40px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+.inputs { min-width: 0; }
+fieldset { border: 0; margin: 0; padding: 14px 16px 16px; display: grid; gap: 12px; }
+fieldset + fieldset { border-top: 1px solid var(--line); }
+legend { float: left; width: 100%; padding: 0; font: 600 15px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+legend + * { clear: both; }
+.field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; }
+.field label { font-weight: 600; min-width: 0; }
+.num { display: flex; align-items: center; gap: 3px; color: var(--muted); }
+.num input { width: 76px; text-align: right; background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 2px 5px; font: inherit; }
+.field input[type=range] { grid-column: 1 / -1; width: 100%; margin: 2px 0 0; accent-color: var(--navy); }
+.was { grid-column: 1 / -1; background: none; border: 0; padding: 0; text-align: left; font-size: 13px; color: var(--navy); text-decoration: underline; text-underline-offset: 2px; }
+.fixed { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.fixed b { font-weight: 600; }
+.chip { font: 600 12px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 2px 4px; margin-left: 6px; }
+
+.results { display: grid; gap: 24px; min-width: 0; }
+.card { padding: 16px; min-width: 0; }
+.card h2 { font-size: 22px; line-height: 1.15; }
+.card > p { margin: 3px 0 12px; color: var(--muted); max-width: 70ch; }
+#chart { position: relative; }
+#chart svg { display: block; width: 100%; touch-action: pan-y; }
+#chart text { font: 12px var(--body); fill: var(--muted); }
+#chart .lab { font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+#tip { position: absolute; top: 8px; pointer-events: none; background: var(--band); color: var(--band-ink); border-radius: 3px; padding: 5px 8px; font-size: 13px; line-height: 1.35; white-space: nowrap; }
+
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; }
+#grid th { font-weight: 600; font-size: 13px; color: var(--muted); padding: 4px 6px; text-align: center; white-space: nowrap; }
+#grid td { padding: 1px; }
+#grid th[scope=row] { text-align: right; }
+#grid .now { color: var(--ink); }
+.cell { width: 100%; min-width: 62px; padding: 8px 2px; border: 0; border-radius: 2px; background: var(--surface); font-weight: 400; white-space: nowrap; }
+.cell:hover { outline: 1px solid var(--ink); }
+.cell.cur { outline: 2px solid var(--ink); outline-offset: -2px; font-weight: 700; }
+.keyline { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); margin-top: 10px; }
+.keyline i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 5px; }
+
+#ledger th, #ledger td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+#ledger th:first-child, #ledger td:first-child, #ledger .basis { text-align: left; }
+#ledger thead th { font: 600 13px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+#ledger .basis { color: var(--muted); font-size: 13px; }
+#ledger .sum td { font-weight: 700; border-bottom: 2px solid var(--ink); }
+#ledger .net td { font-weight: 700; border-bottom: 0; }
+#ledger .pt { width: 150px; min-width: 130px; }
+.bar { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.bar i { display: block; height: 8px; border-radius: 0 4px 4px 0; background: var(--navy); }
+.bar span { width: 56px; flex: none; }
+
+.jumps { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; font-size: 13px; color: var(--muted); }
+.jumps button { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 3px 8px; font-weight: 600; }
+.jumps button:hover { border-color: var(--navy); }
+.jumps button[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: var(--surface); }
+
+.notes { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 80ch; }
+
+@media (max-width: 1000px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .band .wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; padding-block: 8px; }
+  .tile + .tile { border-left: 0; padding-left: 0; }
+  .big, .price-row span, #price { font-size: 26px; }
+  .tile small, #round { font-size: 12px; }
+  #priceRange { display: none; }
+  #ledger .basis { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bar i { transition: width .12s linear; }
+}
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <div>
+      <h1>Ball Ticket Pricing</h1>
+      <p class="sub">Change any cost or attendance figure to see what each ticket needs to cost. Amounts are in euros.</p>
+    </div>
+    <button class="reset" id="reset" type="button">Reset to worksheet baseline</button>
+  </header>
+</div>
+
+<section class="band" aria-label="Pricing summary">
+  <div class="wrap">
+    <div class="tile">
+      <span class="eyebrow">Break-even price</span>
+      <span class="big" id="be"></span>
+      <small id="beSub"></small>
+    </div>
+    <div class="tile">
+      <label class="eyebrow" for="price">Your ticket price</label>
+      <div class="price-row"><span>€</span><input id="price" type="number" min="0" step="1" inputmode="decimal"></div>
+      <input id="priceRange" type="range" min="20" max="200" step="1" aria-label="Your ticket price slider">
+      <button id="round" type="button"></button>
+    </div>
+    <div class="tile">
+      <span class="eyebrow">Result at your price</span>
+      <span class="big"><span id="res"></span><span class="pill" id="resPill"></span></span>
+      <small id="resSub"></small>
+    </div>
+    <div class="tile">
+      <span class="eyebrow">Tickets to break even</span>
+      <span class="big" id="need"></span>
+      <small id="needSub"></small>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <main>
+    <form class="inputs panel" id="inputs" autocomplete="off"></form>
+    <div class="results">
+      <section class="card panel">
+        <h2>Break-even price by tickets sold</h2>
+        <p id="chartCap"></p>
+        <div id="chart"></div>
+      </section>
+      <section class="card panel">
+        <h2>Surplus or shortfall by price and tickets sold</h2>
+        <p>The outlined cell is your current scenario. Select any cell to use its price and ticket count.</p>
+        <div class="scroll"><table id="grid"></table></div>
+        <div class="keyline"><span><i style="background:color-mix(in srgb, var(--gain) 45%, var(--surface))"></i>+ Surplus</span><span><i style="background:color-mix(in srgb, var(--loss) 45%, var(--surface))"></i>− Shortfall</span></div>
+      </section>
+      <section class="card panel">
+        <h2>Budget worksheet</h2>
+        <p>Same layout as your spreadsheet, updated live. Per-ticket is the amount divided by tickets sold.</p>
+        <div class="scroll"><table id="ledger"></table></div>
+      </section>
+      <section class="card panel">
+        <h2>How the worksheet was read</h2>
+        <p>The sheet gives totals and a few notes. These rates were worked out from it so that each figure can move. Check them against what you know.</p>
+        <ul class="notes">
+          <li><b>Meal, €45 per guest:</b> €27,000 ÷ 600 tickets.</li>
+          <li><b>Wine, €4 per guest:</b> stated in the sheet.</li>
+          <li><b>Table gifts, €4 per guest:</b> €2,400 ÷ 600. If gifts are bought per table, this cost will not track tickets this closely.</li>
+          <li><b>Beer, €150 per keg:</b> €600 ÷ 4 kegs.</li>
+          <li><b>VIP, 50 guests:</b> €5,000 ÷ the €100 upgrade. VIPs are counted within tickets sold.</li>
+          <li><b>Childcare, 200 children at €30 each:</b> €4,000 ÷ the €20 parent fee, then €6,000 ÷ 200. The sheet's childcare row also says "50xpassengers", which doesn't fit 200 children, so confirm this headcount.</li>
+          <li><b>Bus riders, 50 / 20 / 50:</b> from the notes beside each bus, read as riders per bus. Bus costs stay flat when riders change. The fare starts at €0 because the sheet shows no bus fare.</li>
+          <li><b>Checkpoint at 480, ceiling at 624:</b> ticket sales can't go above 624. The checkpoint is a jump point for the 480 seating arrangement, and it changes only the ticket count.</li>
+          <li><b>Stays flat as tickets change:</b> venue, buses, childcare, beer, entertainment, keg mallets, raffle gifts and unplanned expenses.</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script>
+/* ---------- Model ---------- */
+const VENUE = 11808.67;
+const CEILING = 624, CHECKPOINT = 480;
+const BASE = { tickets:600, price:90, meal:45, wine:4, gift:4, kegs:4, kegPrice:150,
+  busA:2035, ridersA:50, busG:2475, ridersG:20, busW:2485, ridersW:50, fare:0,
+  children:200, childRate:30, childFee:20,
+  entertainment:5000, mallets:180, raffle:1200, unplanned:3000,
+  vipCount:50, vipPremium:100, donations:5000, surplus:0 };
+
+/*MODEL-START*/
+function compute(p) {
+  const T = Math.max(1, p.tickets);
+  const vip = Math.min(p.vipCount, T);
+  const riders = p.ridersA + p.ridersG + p.ridersW;
+  const costs = [
+    ["Venue", "Fixed", VENUE],
+    ["Meal", `${T} × €${p.meal}`, T * p.meal],
+    ["Bus (Ansbach)", `${p.ridersA} riders`, p.busA],
+    ["Bus (Grafenwöhr)", `${p.ridersG} riders`, p.busG],
+    ["Bus (Wiesbaden)", `${p.ridersW} riders`, p.busW],
+    ["Childcare", `${p.children} children × €${p.childRate}`, p.children * p.childRate],
+    ["Wine", `${T} × €${p.wine}`, T * p.wine],
+    ["Beer", `${p.kegs} kegs × €${p.kegPrice}`, p.kegs * p.kegPrice],
+    ["Entertainment", "", p.entertainment],
+    ["Table gifts", `${T} × €${p.gift}`, T * p.gift],
+    ["Keg mallets", "", p.mallets],
+    ["Raffle gifts", "", p.raffle],
+    ["Unplanned expenses", "", p.unplanned],
+  ];
+  const offsets = [
+    ["VIP offset", `${vip} × €${p.vipPremium} extra`, vip * p.vipPremium],
+    ["Donations", "", p.donations],
+    ["Childcare fees", `${p.children} × €${p.childFee}`, p.children * p.childFee],
+    ["Bus fares", `${riders} × €${p.fare}`, riders * p.fare],
+  ];
+  const total = costs.reduce((s, r) => s + r[2], 0);
+  const offset = offsets.reduce((s, r) => s + r[2], 0);
+  const net = total - offset;
+  return { T, costs, offsets, total, offset, net,
+    breakEven: net / T,
+    targetPrice: (net + p.surplus) / T,
+    result: p.price * T - net };
+}
+function ticketsToBreakEven(p) {
+  for (let t = 1; t <= CEILING; t++) if (compute({ ...p, tickets: t }).result >= 0) return t;
+  return null;
+}
+/*MODEL-END*/
+
+/* ---------- Inputs ---------- */
+const GROUPS = [
+  ["Attendance", [["tickets","Tickets sold","",100,CEILING,4]]],
+  ["Venue", "venue"],
+  ["Food and drink", [["meal","Meal per guest","€",20,120,1],["wine","Wine per guest","€",0,20,.5],["kegs","Beer kegs","",0,12,1],["kegPrice","Cost per keg","€",50,400,5]]],
+  ["Buses", [["busA","Ansbach bus cost","€",0,5000,5],["ridersA","Ansbach riders","",0,100,1],["busG","Grafenwöhr bus cost","€",0,5000,5],["ridersG","Grafenwöhr riders","",0,100,1],["busW","Wiesbaden bus cost","€",0,5000,5],["ridersW","Wiesbaden riders","",0,100,1],["fare","Bus fare per rider","€",0,60,1]]],
+  ["Childcare", [["children","Children","",0,400,5],["childRate","Cost per child","€",0,100,1],["childFee","Parent fee per child","€",0,60,1]]],
+  ["Entertainment and extras", [["entertainment","Entertainment","€",0,15000,100],["gift","Table gifts per guest","€",0,15,.5],["mallets","Keg mallets","€",0,500,10],["raffle","Raffle gifts","€",0,5000,50],["unplanned","Unplanned expenses","€",0,10000,100]]],
+  ["Funding", [["vipCount","VIP guests","",0,200,5],["vipPremium","VIP extra charge","€",0,250,5],["donations","Donations","€",0,25000,250]]],
+  ["Goal", [["surplus","Surplus to end with","€",0,20000,250]]],
+];
+const KEY = "ball-ticket-pricing-v1";
+let state = { ...BASE };
+try { state = { ...BASE, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch (e) {}
+state.tickets = Math.min(state.tickets, CEILING);
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+const $ = id => document.getElementById(id);
+const money = (n, d = 2) => (n < 0 ? "−€" : "€") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const signed = (n, d = 0) => (Math.round(n * 10 ** d) === 0 ? "€0" : (n > 0 ? "+€" : "−€") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }));
+const trim = n => "€" + n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+const short = n => { const a = Math.abs(n), s = n >= 0.5 ? "+€" : n <= -0.5 ? "−€" : "€"; return s + (a >= 1000 ? (a / 1000).toFixed(1) + "k" : Math.round(a)); };
+
+$("inputs").innerHTML = GROUPS.map(([name, fields]) => {
+  if (fields === "venue") return `<fieldset><legend>${name}</legend><div class="fixed"><b>Venue cost<span class="chip">Fixed</span></b><span>${money(VENUE)}</span></div></fieldset>`;
+  return `<fieldset><legend>${name}</legend>` + fields.map(([k, label, unit, min, max, step]) => `
+    <div class="field">
+      <label for="${k}">${label}</label>
+      <span class="num">${unit}<input id="${k}" data-k="${k}" type="number" min="0" step="any" inputmode="decimal"></span>
+      <input id="${k}Range" data-k="${k}" type="range" min="${min}" max="${max}" step="${step}" aria-label="${label} slider" tabindex="-1"${k === "tickets" ? ` list="ticketMarks"` : ""}>
+      ${k === "tickets" ? `<datalist id="ticketMarks"><option value="${CHECKPOINT}"></option><option value="${CEILING}"></option></datalist>
+      <div class="jumps"><span>Jump to</span><button type="button" data-jump="${CHECKPOINT}">${CHECKPOINT} checkpoint</button><button type="button" data-jump="${CEILING}">${CEILING} ceiling</button></div>` : ""}
+      <button class="was" id="${k}Was" data-reset="${k}" type="button" hidden></button>
+    </div>`).join("") + `</fieldset>`;
+}).join("");
+const UNITS = Object.fromEntries(GROUPS.flatMap(g => Array.isArray(g[1]) ? g[1].map(f => [f[0], f[2]]) : []));
+
+$("inputs").addEventListener("submit", e => e.preventDefault());
+document.addEventListener("input", e => {
+  const k = e.target.dataset.k || (e.target.id === "price" || e.target.id === "priceRange" ? "price" : null);
+  if (!k) return;
+  const v = parseFloat(e.target.value);
+  state[k] = isFinite(v) && v >= 0 ? v : 0;
+  if (k === "tickets" && state.tickets > CEILING) { state.tickets = CEILING; render(); return; }
+  render(e.target);
+});
+document.addEventListener("click", e => {
+  const k = e.target.dataset && e.target.dataset.reset;
+  if (k) { state[k] = BASE[k]; render(); }
+  const j = e.target.dataset && e.target.dataset.jump;
+  if (j) { state.tickets = +j; render(); }
+  const c = e.target.closest && e.target.closest(".cell");
+  if (c) { state.price = +c.dataset.p; state.tickets = +c.dataset.t; render(); }
+});
+$("reset").addEventListener("click", () => { state = { ...BASE }; render(); });
+$("round").addEventListener("click", e => { state.price = +e.target.dataset.v; render(); });
+
+/* ---------- Render ---------- */
+function render(from) {
+  save();
+  const m = compute(state);
+  const base = compute(BASE);
+
+  Object.keys(UNITS).forEach(k => {
+    const num = $(k), rng = $(k + "Range"), was = $(k + "Was");
+    if (num !== from) num.value = state[k];
+    if (rng !== from) rng.value = state[k];
+    const changed = state[k] !== BASE[k];
+    was.hidden = !changed;
+    if (changed) was.textContent = `Reset to ${UNITS[k]}${BASE[k].toLocaleString("en-US")}`;
+  });
+  if ($("price") !== from) $("price").value = state.price;
+  if ($("priceRange") !== from) $("priceRange").value = state.price;
+
+  $("be").textContent = money(m.breakEven);
+  const d = m.breakEven - base.breakEven;
+  $("beSub").textContent = state.surplus > 0
+    ? `${money(m.targetPrice)} to end with ${money(state.surplus, 0)}`
+    : Math.abs(d) < .005 ? "Matches the worksheet" : `${signed(d, 2)} vs. the worksheet's ${money(base.breakEven)}`;
+
+  const rounded = Math.ceil(Math.max(0, +m.targetPrice.toFixed(2)) / 5) * 5;
+  const r = $("round");
+  r.dataset.v = rounded;
+  r.disabled = rounded === state.price;
+  r.textContent = r.disabled ? "Rounded up to the next €5" : `Use ${trim(rounded)} (next €5 up)`;
+
+  $("res").textContent = signed(m.result);
+  const rv = Math.round(m.result);
+  const pill = $("resPill");
+  pill.textContent = rv > 0 ? "Surplus" : rv < 0 ? "Shortfall" : "Even";
+  pill.style.color = rv > 0 ? "var(--brass)" : rv < 0 ? "#ffa48f" : "var(--band-muted)";
+  const gap = m.result - state.surplus;
+  $("resSub").textContent = state.surplus > 0
+    ? (gap >= 0 ? `Meets your ${money(state.surplus, 0)} goal` : `${money(-gap, 0)} short of your ${money(state.surplus, 0)} goal`)
+    : `${money(state.price * m.T, 0)} in ticket sales against ${money(m.net, 0)} net cost`;
+
+  const need = ticketsToBreakEven(state);
+  $("need").textContent = need !== null ? need.toLocaleString("en-US") : state.price > state.meal + state.wine + state.gift ? `Over ${CEILING}` : "None";
+  const perGuest = state.meal + state.wine + state.gift;
+  const margin = state.price - perGuest;
+  $("needSub").textContent = need === null
+    ? (margin > 0 ? `This price can't break even within the ${CEILING} ceiling` : `Price is at or below the ${money(perGuest, 0)} per-guest cost`)
+    : `${money(margin)} per ticket after per-guest costs`;
+
+  document.querySelectorAll("[data-jump]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.jump === state.tickets)));
+  renderChart(m, need);
+  renderGrid(m);
+  renderLedger(m);
+}
+
+function niceStep(span, n) {
+  const raw = span / n, mag = 10 ** Math.floor(Math.log10(raw)), f = raw / mag;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * mag;
+}
+
+function renderChart(m, need) {
+  const box = $("chart");
+  const W = Math.max(280, box.clientWidth), H = 280;
+  const M = { l: 46, r: 14, t: 14, b: 38 };
+  const lo = Math.max(10, Math.round(Math.min(m.T, CHECKPOINT) * .5)), hi = CEILING;
+  const be = t => compute({ ...state, tickets: t }).breakEven;
+  const pts = []; const n = 80;
+  for (let i = 0; i <= n; i++) { const t = Math.round(lo + (hi - lo) * i / n); pts.push([t, be(t)]); }
+  const vals = pts.map(q => q[1]).concat(state.price);
+  let yMin = Math.min(...vals), yMax = Math.max(...vals);
+  const pad = Math.max(1, (yMax - yMin) * .08); yMin -= pad; yMax += pad;
+  const ys = niceStep(yMax - yMin, 5);
+  yMin = Math.floor(yMin / ys) * ys; yMax = Math.ceil(yMax / ys) * ys;
+  const x = t => M.l + (t - lo) / (hi - lo) * (W - M.l - M.r);
+  const y = v => H - M.b - (v - yMin) / (yMax - yMin) * (H - M.t - M.b);
+
+  let g = "";
+  for (let v = yMin; v <= yMax + 1e-9; v += ys) {
+    g += `<line x1="${M.l}" x2="${W - M.r}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/>` +
+         `<text x="${M.l - 6}" y="${y(v) + 4}" text-anchor="end">€${Math.round(v)}</text>`;
+  }
+  const xs = niceStep(hi - lo, W < 480 ? 4 : 7);
+  for (let t = Math.ceil(lo / xs) * xs; t <= hi; t += xs) {
+    g += `<text x="${x(t)}" y="${H - M.b + 17}" text-anchor="middle">${t}</text>`;
+  }
+  g += `<text x="${(M.l + W - M.r) / 2}" y="${H - 4}" text-anchor="middle">Tickets sold</text>`;
+
+  const line = pts.map((q, i) => (i ? "L" : "M") + x(q[0]).toFixed(1) + " " + y(q[1]).toFixed(1)).join("");
+  const py = y(state.price), cx = x(m.T), cy = y(m.breakEven);
+  let cross = "";
+  if (need !== null && need >= lo && need <= hi) cross = `<circle cx="${x(need)}" cy="${py}" r="4" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>`;
+
+  box.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Line chart of break-even ticket price against tickets sold">
+    ${g}
+    <line x1="${M.l}" x2="${W - M.r}" y1="${py}" y2="${py}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <path d="${line}" fill="none" stroke="var(--navy)" stroke-width="2" stroke-linejoin="round"/>
+    <line x1="${x(CHECKPOINT)}" x2="${x(CHECKPOINT)}" y1="${M.t}" y2="${H - M.b}" stroke="var(--muted)" stroke-dasharray="2 3"/>
+    <line x1="${x(CEILING)}" x2="${x(CEILING)}" y1="${M.t}" y2="${H - M.b}" stroke="var(--ink)" stroke-width="1.5"/>
+    <text class="lab" x="${x(CHECKPOINT)}" y="${M.t + 12}" text-anchor="middle">Checkpoint ${CHECKPOINT}</text>
+    <text class="lab" x="${x(CEILING) - 6}" y="${M.t + 12}" text-anchor="end">Ceiling ${CEILING}</text>
+    ${cross}
+    <circle cx="${cx}" cy="${cy}" r="5" fill="var(--navy)" stroke="var(--surface)" stroke-width="2"/>
+    <text class="lab" x="${W - M.r}" y="${py - 7}" text-anchor="end">Your price ${trim(state.price)}</text>
+    <text class="lab" x="${cx - 10}" y="${cy + 22}" text-anchor="end">${m.T} tickets: ${money(m.breakEven)}</text>
+    <g id="hover" visibility="hidden">
+      <line id="hl" y1="${M.t}" y2="${H - M.b}" stroke="var(--muted)"/>
+      <circle id="hd" r="5" fill="var(--navy)" stroke="var(--surface)" stroke-width="2"/>
+    </g>
+    <rect id="hit" x="${M.l}" y="${M.t}" width="${W - M.l - M.r}" height="${H - M.t - M.b}" fill="transparent"/>
+  </svg><div id="tip" hidden></div>`;
+
+  const hit = $("hit"), hov = $("hover"), tip = $("tip");
+  hit.addEventListener("pointermove", e => {
+    const rect = box.getBoundingClientRect();
+    const px = Math.min(W - M.r, Math.max(M.l, e.clientX - rect.left));
+    const t = Math.round(lo + (px - M.l) / (W - M.l - M.r) * (hi - lo));
+    const c = compute({ ...state, tickets: t });
+    hov.setAttribute("visibility", "visible");
+    $("hl").setAttribute("x1", x(t)); $("hl").setAttribute("x2", x(t));
+    $("hd").setAttribute("cx", x(t)); $("hd").setAttribute("cy", y(c.breakEven));
+    tip.hidden = false;
+    tip.innerHTML = `<b>${t} tickets</b><br>Break-even ${money(c.breakEven)}<br>At ${trim(state.price)}: ${signed(c.result)}`;
+    const tw = tip.offsetWidth;
+    tip.style.left = (x(t) + 12 + tw > W ? x(t) - tw - 12 : x(t) + 12) + "px";
+  });
+  hit.addEventListener("pointerleave", () => { hov.setAttribute("visibility", "hidden"); tip.hidden = true; });
+
+  $("chartCap").textContent = need === null
+    ? (state.price > state.meal + state.wine + state.gift
+      ? `At ${trim(state.price)} you can't break even within the ${CEILING}-ticket ceiling.`
+      : `At ${trim(state.price)} no ticket count breaks even, because each ticket doesn't cover its own ${money(state.meal + state.wine + state.gift, 0)} in per-guest costs.`)
+    : `At ${trim(state.price)} you break even at ${need.toLocaleString("en-US")} tickets (open circle). Selling fewer pushes the price up because the fixed costs are shared by fewer guests. With the ${CEILING}-ticket ceiling, no price below ${money(compute({ ...state, tickets: CEILING }).breakEven)} can break even.`;
+}
+
+function renderGrid(m) {
+  const steps = [-3, -2, -1, 0, 1, 2, 3];
+  const ts = [...new Set([380, 430, CHECKPOINT, 530, 580, CEILING, m.T])].sort((a, b) => a - b);
+  const tag = t => t === CHECKPOINT ? "<br>checkpoint" : t === CEILING ? "<br>ceiling" : "";
+  const ps = steps.map(s => state.price + s * 5).filter(p => p > 0).reverse();
+  const res = ps.map(p => ts.map(t => compute({ ...state, price: p, tickets: t }).result));
+  const peak = Math.max(1, ...res.flat().map(Math.abs));
+  let h = `<thead><tr><th scope="col">Price / Tickets</th>` + ts.map(t => `<th scope="col" class="${t === m.T ? "now" : ""}">${t}${tag(t)}</th>`).join("") + `</tr></thead><tbody>`;
+  ps.forEach((p, i) => {
+    h += `<tr><th scope="row" class="${p === state.price ? "now" : ""}">${trim(p)}</th>`;
+    ts.forEach((t, j) => {
+      const v = res[i][j], a = Math.round(Math.abs(v) / peak * 45);
+      const col = v >= 0 ? "--gain" : "--loss";
+      const cur = p === state.price && t === m.T;
+      h += `<td><button type="button" class="cell${cur ? " cur" : ""}" data-p="${p}" data-t="${t}" title="${trim(p)} × ${t} tickets: ${signed(v)}" style="background:color-mix(in srgb, var(${col}) ${a}%, var(--surface))">${short(v)}</button></td>`;
+    });
+    h += `</tr>`;
+  });
+  $("grid").innerHTML = h + `</tbody>`;
+}
+
+function renderLedger(m) {
+  const peak = Math.max(1, ...m.costs.map(r => r[2]));
+  const row = (r, sign = "") => {
+    const pt = r[2] / m.T, w = Math.round(r[2] / peak * 70);
+    return `<tr><td>${r[0]}</td><td class="basis">${r[1]}</td><td>${sign}${money(r[2])}</td><td class="pt"><div class="bar"><i style="width:${w}px"></i><span>${sign}${money(pt)}</span></div></td></tr>`;
+  };
+  const plain = (name, v, cls) => `<tr class="${cls}"><td>${name}</td><td class="basis"></td><td>${money(v)}</td><td class="pt"><div class="bar"><span>${money(v / m.T)}</span></div></td></tr>`;
+  const offsets = m.offsets.filter(r => r[0] !== "Bus fares" || r[2] > 0);
+  $("ledger").innerHTML = `<thead><tr><th scope="col">Item</th><th scope="col" class="basis">Basis</th><th scope="col">Amount</th><th scope="col" class="pt">Per ticket</th></tr></thead><tbody>`
+    + m.costs.map(r => row(r)).join("")
+    + plain("Total costs", m.total, "sum")
+    + offsets.map(r => row(r, "−")).join("")
+    + plain("Net to cover with tickets", m.net, "net")
+    + `</tbody>`;
+}
+
+render();
+let rw = 0;
+new ResizeObserver(es => { const w = es[0].contentRect.width; if (w !== rw) { rw = w; renderChart(compute(state), ticketsToBreakEven(state)); } }).observe($("chart"));
+</script>

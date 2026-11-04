@@ -11,6 +11,14 @@ The starting figures come from the ball funding and cost worksheet: €66,583.67
 - Venue cost is fixed at €11,808.67.
 - Ticket sales are capped at 624, with a jump point at 480 for the alternate seating arrangement.
 
+## Pricing by rank
+
+Switch the Pricing model card to **By rank** to set a separate price and guest count for each rank group and for civilians. Groups can be renamed, added or removed.
+
+- **Placeholders:** the worksheet has no rank data, so the starting groups and guest counts are placeholders. Every group starts at the current single price, which gives the same result as one price.
+- **Guest counts:** typing a count updates tickets sold to the total of all groups, up to the 624 ceiling. Moving tickets sold keeps the groups in the same proportions, rounded to whole guests.
+- **VIP extra charge:** this still applies on top of rank prices, so set VIP guests to 0 if a rank price already includes it.
+
 ## How the worksheet was read
 
 The sheet gives totals and a few notes. These rates were worked out from it so that each figure can move. Check them against what you know.

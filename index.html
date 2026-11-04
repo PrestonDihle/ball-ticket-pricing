@@ -31,6 +31,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { background: var(--bg); color: var(--ink); font: 400 15px/1.45 var(--body); font-variant-numeric: tabular-nums; }
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--band); }
 .wrap { max-width: 1280px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -58,6 +59,7 @@ h1 { font-size: 30px; line-height: 1.1; letter-spacing: .01em; }
 #priceRange { width: 100%; accent-color: var(--brass); margin: 4px 0 2px; }
 #round { background: none; border: 0; padding: 0; color: var(--brass); text-decoration: underline; text-underline-offset: 2px; font-size: 13px; text-align: left; }
 #round:disabled { color: var(--band-muted); text-decoration: none; cursor: default; }
+#avgPrice { font: 700 36px/1.1 var(--display); color: var(--brass); }
 .band :focus-visible { outline-color: var(--band-ink); }
 .pill { display: inline-block; font: 600 12px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 3px; padding: 3px 5px; vertical-align: 6px; margin-left: 6px; }
 
@@ -116,13 +118,34 @@ table { border-collapse: collapse; width: 100%; }
 .jumps button:hover { border-color: var(--navy); }
 .jumps button[aria-pressed="true"] { background: var(--navy); border-color: var(--navy); color: var(--surface); }
 
+.model-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg button { background: var(--surface); border: 0; padding: 6px 12px; font-weight: 600; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--navy); color: var(--surface); }
+.card p.note { color: var(--ink); border-left: 3px solid var(--brass); padding-left: 8px; margin: 0 0 12px; }
+#modelCap { margin: 6px 0 12px; color: var(--muted); max-width: 70ch; }
+#tiers { min-width: 680px; }
+#tiers th, #tiers td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+#tiers th:first-child, #tiers td:first-child { text-align: left; padding-left: 0; }
+#tiers thead th { font: 600 13px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+#tiers tfoot td { font-weight: 700; border-bottom: 0; }
+#tiers input { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 2px 5px; font: inherit; }
+#tiers input[data-f="name"] { width: 150px; font-weight: 600; }
+#tiers input[data-f="guests"], #tiers input[type=number][data-f="price"] { width: 66px; text-align: right; }
+#tiers input[type=range] { width: 110px; padding: 0; border: 0; accent-color: var(--navy); margin-left: 6px; }
+.tier-price { display: flex; align-items: center; justify-content: flex-end; gap: 3px; color: var(--muted); }
+.drop { background: none; border: 0; padding: 2px 6px; color: var(--muted); font-size: 16px; line-height: 1; }
+.drop:hover { color: var(--bad); }
+.tier-actions { margin-top: 12px; }
+
 @media (max-width: 1000px) {
   main { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 720px) {
   .band .wrap { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; padding-block: 8px; }
   .tile + .tile { border-left: 0; padding-left: 0; }
-  .big, .price-row span, #price { font-size: 26px; }
+  .big, .price-row span, #price, #avgPrice { font-size: 26px; }
   .tile small, #round { font-size: 12px; }
   #priceRange { display: none; }
   #ledger .basis { display: none; }
@@ -150,8 +173,10 @@ table { border-collapse: collapse; width: 100%; }
       <small id="beSub"></small>
     </div>
     <div class="tile">
-      <label class="eyebrow" for="price">Your ticket price</label>
-      <div class="price-row"><span>€</span><input id="price" type="number" min="0" step="1" inputmode="decimal"></div>
+      <label class="eyebrow" for="price" id="priceLabel">Your ticket price</label>
+      <span class="eyebrow" id="avgLabel" hidden>Average ticket price</span>
+      <div class="price-row" id="priceSingle"><span>€</span><input id="price" type="number" min="0" step="1" inputmode="decimal"></div>
+      <span id="avgPrice" hidden></span>
       <input id="priceRange" type="range" min="20" max="200" step="1" aria-label="Your ticket price slider">
       <button id="round" type="button"></button>
     </div>
@@ -172,14 +197,32 @@ table { border-collapse: collapse; width: 100%; }
   <main>
     <form class="inputs panel" id="inputs" autocomplete="off"></form>
     <div class="results">
+      <section class="card panel" aria-labelledby="modelTitle">
+        <div class="model-head">
+          <h2 id="modelTitle">Pricing model</h2>
+          <div class="seg" role="group" aria-label="Pricing model">
+            <button type="button" data-mode="single">One price</button>
+            <button type="button" data-mode="tiered">By rank</button>
+          </div>
+        </div>
+        <div id="modelCap"></div>
+        <div id="tierPanel" hidden>
+          <p class="note" id="mixNote">The rank groups and guest counts are placeholders. Replace them with your own figures.</p>
+          <div class="scroll"><table id="tiers"></table></div>
+          <div class="tier-actions jumps">
+            <button type="button" id="addTier">Add rank group</button>
+            <button type="button" id="sameTier"></button>
+          </div>
+        </div>
+      </section>
       <section class="card panel">
         <h2>Break-even price by tickets sold</h2>
         <p id="chartCap"></p>
         <div id="chart"></div>
       </section>
       <section class="card panel">
-        <h2>Surplus or shortfall by price and tickets sold</h2>
-        <p>The outlined cell is your current scenario. Select any cell to use its price and ticket count.</p>
+        <h2 id="gridTitle">Surplus or shortfall by price and tickets sold</h2>
+        <p id="gridCap">The outlined cell is your current scenario. Select any cell to use its price and ticket count.</p>
         <div class="scroll"><table id="grid"></table></div>
         <div class="keyline"><span><i style="background:color-mix(in srgb, var(--gain) 45%, var(--surface))"></i>+ Surplus</span><span><i style="background:color-mix(in srgb, var(--loss) 45%, var(--surface))"></i>− Shortfall</span></div>
       </section>
@@ -200,9 +243,23 @@ const BASE = { tickets:600, price:90, meal:45, wine:4, gift:4, kegs:4, kegPrice:
   busA:2035, ridersA:50, busG:2475, ridersG:20, busW:2485, ridersW:50, fare:0,
   children:200, childRate:30, childFee:20,
   entertainment:5000, mallets:180, raffle:1200, unplanned:3000,
-  vipCount:50, vipPremium:100, donations:5000, surplus:0 };
+  vipCount:50, vipPremium:100, donations:5000, surplus:0, mode:"single",
+  /* Placeholder groups and mix, not from the worksheet. Every group starts at the worksheet's €90. */
+  tiers:[["E-1 to E-4",180],["E-5 to E-6",150],["E-7 to E-9",72],["WO1 to CW5",18],["O-1 to O-3",60],["O-4 to O-5",24],["O-6 and above",6],["Civilians",90]]
+    .map(([name, weight]) => ({ name, weight, price:90 })) };
+const fresh = () => JSON.parse(JSON.stringify(BASE));
 
 /*MODEL-START*/
+/* Splits T whole tickets across the groups in proportion to their weights (largest remainder). */
+function apportion(tiers, T) {
+  const sum = tiers.reduce((a, t) => a + t.weight, 0);
+  if (sum <= 0) return tiers.map(() => 0);
+  const raw = tiers.map(t => t.weight / sum * T);
+  const out = raw.map(Math.floor);
+  let left = T - out.reduce((a, b) => a + b, 0);
+  raw.map((r, i) => [r - out[i], i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).forEach(([, i]) => { if (left-- > 0) out[i]++; });
+  return out;
+}
 function compute(p) {
   const T = Math.max(1, p.tickets);
   const vip = Math.min(p.vipCount, T);
@@ -231,10 +288,14 @@ function compute(p) {
   const total = costs.reduce((s, r) => s + r[2], 0);
   const offset = offsets.reduce((s, r) => s + r[2], 0);
   const net = total - offset;
-  return { T, costs, offsets, total, offset, net,
+  const tiered = p.mode === "tiered";
+  const counts = tiered ? apportion(p.tiers, T) : [];
+  const revenue = tiered ? p.tiers.reduce((a, t, i) => a + t.price * counts[i], 0) : p.price * T;
+  return { T, costs, offsets, total, offset, net, counts, revenue,
+    avgPrice: revenue / T,
     breakEven: net / T,
     targetPrice: (net + p.surplus) / T,
-    result: p.price * T - net };
+    result: revenue - net };
 }
 function ticketsToBreakEven(p) {
   for (let t = 1; t <= CEILING; t++) if (compute({ ...p, tickets: t }).result >= 0) return t;
@@ -254,8 +315,8 @@ const GROUPS = [
   ["Entertainment and extras", [["entertainment","Entertainment","€",0,15000,100],["gift","Table gifts per guest","€",0,15,.5],["mallets","Keg mallets","€",0,500,10],["raffle","Raffle gifts","€",0,5000,50],["unplanned","Unplanned expenses","€",0,10000,100]]],
 ];
 const KEY = "ball-ticket-pricing-v1";
-let state = { ...BASE };
-try { state = { ...BASE, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch (e) {}
+let state = fresh();
+try { state = { ...fresh(), ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch (e) {}
 state.tickets = Math.min(state.tickets, CEILING);
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
 
@@ -280,7 +341,23 @@ $("inputs").innerHTML = GROUPS.map(([name, fields]) => {
 const UNITS = Object.fromEntries(GROUPS.flatMap(g => Array.isArray(g[1]) ? g[1].map(f => [f[0], f[2]]) : []));
 
 $("inputs").addEventListener("submit", e => e.preventDefault());
+const shifted = (s, by) => s.tiers.map(t => ({ ...t, price: Math.max(0, t.price + by) }));
 document.addEventListener("input", e => {
+  const tr = e.target.closest && e.target.closest("[data-tier]");
+  if (tr) {
+    const i = +tr.dataset.tier, f = e.target.dataset.f, tier = state.tiers[i];
+    if (f === "name") { tier.name = e.target.value; save(); return; }
+    const v = Math.max(0, parseFloat(e.target.value) || 0);
+    if (f === "price") { tier.price = v; render(e.target); return; }
+    /* Typing a guest count fixes every group at its current count, and tickets sold becomes their total. */
+    const counts = compute(state).counts;
+    const others = counts.reduce((a, c) => a + c, 0) - counts[i];
+    const n = Math.min(Math.round(v), CEILING - others);
+    state.tiers.forEach((t, j) => { t.weight = j === i ? n : counts[j]; });
+    state.tickets = others + n;
+    render(n === v ? e.target : undefined);
+    return;
+  }
   const k = e.target.dataset.k || (e.target.id === "price" || e.target.id === "priceRange" ? "price" : null);
   if (!k) return;
   const v = parseFloat(e.target.value);
@@ -294,16 +371,48 @@ document.addEventListener("click", e => {
   const j = e.target.dataset && e.target.dataset.jump;
   if (j) { state.tickets = +j; render(); }
   const c = e.target.closest && e.target.closest(".cell");
-  if (c) { state.price = +c.dataset.p; state.tickets = +c.dataset.t; render(); }
+  if (c) {
+    if (state.mode === "tiered") state.tiers = shifted(state, +c.dataset.p);
+    else state.price = +c.dataset.p;
+    state.tickets = +c.dataset.t;
+    render();
+  }
+  const mode = e.target.dataset && e.target.dataset.mode;
+  if (mode && mode !== state.mode) {
+    /* Rank prices that are all still equal pick up the current single price. */
+    if (mode === "tiered" && state.tiers.every(t => t.price === state.tiers[0].price)) state.tiers.forEach(t => { t.price = state.price; });
+    state.mode = mode;
+    render();
+  }
+  const drop = e.target.dataset && e.target.dataset.drop;
+  if (drop !== undefined) {
+    const keep = compute(state).counts.filter((_, j) => j !== +drop);
+    state.tiers.splice(+drop, 1);
+    state.tiers.forEach((t, j) => { t.weight = keep[j]; });
+    state.tickets = keep.reduce((a, b) => a + b, 0);
+    render();
+  }
 });
-$("reset").addEventListener("click", () => { state = { ...BASE }; render(); });
-$("round").addEventListener("click", e => { state.price = +e.target.dataset.v; render(); });
+$("addTier").addEventListener("click", () => {
+  state.tiers.push({ name: "New group", weight: 0, price: Math.round(compute(state).avgPrice) });
+  const counts = compute(state).counts;
+  state.tiers.forEach((t, j) => { t.weight = counts[j]; });
+  render();
+});
+$("sameTier").addEventListener("click", e => { state.tiers.forEach(t => { t.price = +e.target.dataset.v; }); render(); });
+$("reset").addEventListener("click", () => { state = fresh(); render(); });
+$("round").addEventListener("click", e => {
+  if (state.mode === "tiered") state.tiers = shifted(state, +e.target.dataset.v);
+  else state.price = +e.target.dataset.v;
+  render();
+});
 
 /* ---------- Render ---------- */
 function render(from) {
   save();
   const m = compute(state);
   const base = compute(BASE);
+  const tiered = state.mode === "tiered";
 
   Object.keys(UNITS).forEach(k => {
     const num = $(k), rng = $(k + "Range"), was = $(k + "Was");
@@ -315,6 +424,10 @@ function render(from) {
   });
   if ($("price") !== from) $("price").value = state.price;
   if ($("priceRange") !== from) $("priceRange").value = state.price;
+  ["priceLabel", "priceSingle", "priceRange"].forEach(id => { $(id).hidden = tiered; });
+  $("avgLabel").hidden = $("avgPrice").hidden = !tiered;
+  $("avgPrice").textContent = money(m.avgPrice);
+  document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === state.mode)));
 
   $("be").textContent = money(m.breakEven);
   const d = m.breakEven - base.breakEven;
@@ -324,9 +437,17 @@ function render(from) {
 
   const rounded = Math.ceil(Math.max(0, +m.targetPrice.toFixed(2)) / 5) * 5;
   const r = $("round");
-  r.dataset.v = rounded;
-  r.disabled = rounded === state.price;
-  r.textContent = r.disabled ? "Rounded up to the next €5" : `Use ${trim(rounded)} (next €5 up)`;
+  if (tiered) {
+    const by = Math.ceil(+(m.targetPrice - m.avgPrice).toFixed(2));
+    const aim = state.surplus > 0 ? "reach your goal" : "break even";
+    r.dataset.v = by;
+    r.disabled = by === 0;
+    r.textContent = by > 0 ? `Add ${trim(by)} to every rank to ${aim}` : by < 0 ? `Take ${trim(-by)} off every rank and still ${aim}` : "Within €1 of the amount needed";
+  } else {
+    r.dataset.v = rounded;
+    r.disabled = rounded === state.price;
+    r.textContent = r.disabled ? "Rounded up to the next €5" : `Use ${trim(rounded)} (next €5 up)`;
+  }
 
   $("res").textContent = signed(m.result);
   const rv = Math.round(m.result);
@@ -336,20 +457,63 @@ function render(from) {
   const gap = m.result - state.surplus;
   $("resSub").textContent = state.surplus > 0
     ? (gap >= 0 ? `Meets your ${money(state.surplus, 0)} goal` : `${money(-gap, 0)} short of your ${money(state.surplus, 0)} goal`)
-    : `${money(state.price * m.T, 0)} in ticket sales against ${money(m.net, 0)} net cost`;
+    : `${money(m.revenue, 0)} in ticket sales against ${money(m.net, 0)} net cost`;
 
   const need = ticketsToBreakEven(state);
-  $("need").textContent = need !== null ? need.toLocaleString("en-US") : state.price > state.meal + state.wine + state.gift ? `Over ${CEILING}` : "None";
+  $("need").textContent = need !== null ? need.toLocaleString("en-US") : m.avgPrice > state.meal + state.wine + state.gift ? `Over ${CEILING}` : "None";
   const perGuest = state.meal + state.wine + state.gift;
-  const margin = state.price - perGuest;
+  const margin = m.avgPrice - perGuest;
   $("needSub").textContent = need === null
-    ? (margin > 0 ? `This price can't break even within the ${CEILING} ceiling` : `Price is at or below the ${money(perGuest, 0)} per-guest cost`)
+    ? (margin > 0 ? `${tiered ? "These prices" : "This price"} can't break even within the ${CEILING} ceiling` : `${tiered ? "Average price" : "Price"} is at or below the ${money(perGuest, 0)} per-guest cost`)
     : `${money(margin)} per ticket after per-guest costs`;
 
   document.querySelectorAll("[data-jump]").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.jump === state.tickets)));
+  renderModel(m, tiered, from);
   renderChart(m, need);
   renderGrid(m);
   renderLedger(m);
+}
+
+function renderModel(m, tiered, from) {
+  $("tierPanel").hidden = !tiered;
+  $("modelCap").textContent = tiered
+    ? `Set a price and guest count for each group. "Against break-even" compares each group's ticket sales with an equal share of the net cost, ${money(m.breakEven)} a ticket. When tickets sold changes, the groups keep the same proportions.`
+    : "Everyone pays the same price. Switch to By rank to price each rank and civilians separately.";
+  if (!tiered) return;
+  const unchanged = state.tiers.length === BASE.tiers.length && state.tiers.every((t, i) => t.name === BASE.tiers[i].name && t.weight === BASE.tiers[i].weight);
+  $("mixNote").hidden = !unchanged;
+  const table = $("tiers");
+  if (table.querySelectorAll("tbody tr").length !== state.tiers.length) {
+    table.innerHTML = `<thead><tr><th scope="col">Group</th><th scope="col">Guests</th><th scope="col">Share</th><th scope="col">Ticket price</th><th scope="col">Ticket sales</th><th scope="col">Against break-even</th><th scope="col" aria-label="Remove"></th></tr></thead><tbody>`
+      + state.tiers.map((_, i) => `<tr data-tier="${i}">
+        <td><input data-f="name" type="text" aria-label="Group ${i + 1} name"></td>
+        <td><input data-f="guests" type="number" min="0" step="1" inputmode="numeric" aria-label="Group ${i + 1} guests"></td>
+        <td data-o="share"></td>
+        <td><div class="tier-price">€<input data-f="price" type="number" min="0" step="any" inputmode="decimal" aria-label="Group ${i + 1} ticket price"><input data-f="price" type="range" min="0" max="250" step="1" aria-label="Group ${i + 1} ticket price slider" tabindex="-1"></div></td>
+        <td data-o="sales"></td>
+        <td data-o="diff"></td>
+        <td><button class="drop" type="button" data-drop="${i}" aria-label="Remove group ${i + 1}" title="Remove group">×</button></td>
+      </tr>`).join("")
+      + `</tbody><tfoot><tr><td>Total</td><td id="tTotal"></td><td>100%</td><td id="tAvg"></td><td id="tSales"></td><td id="tDiff"></td><td></td></tr></tfoot>`;
+  }
+  const set = (el, v) => { if (el !== from) el.value = v; };
+  table.querySelectorAll("tbody tr").forEach((row, i) => {
+    const t = state.tiers[i], n = m.counts[i];
+    set(row.querySelector('[data-f="name"]'), t.name);
+    set(row.querySelector('[data-f="guests"]'), n);
+    row.querySelectorAll('[data-f="price"]').forEach(el => set(el, t.price));
+    row.querySelector('[data-o="share"]').textContent = (n / m.T * 100).toFixed(1) + "%";
+    row.querySelector('[data-o="sales"]').textContent = money(t.price * n, 0);
+    row.querySelector('[data-o="diff"]').textContent = signed((t.price - m.breakEven) * n);
+    row.querySelector(".drop").hidden = state.tiers.length < 2;
+  });
+  $("tTotal").textContent = m.counts.reduce((a, b) => a + b, 0);
+  $("tAvg").textContent = money(m.avgPrice) + " avg";
+  $("tSales").textContent = money(m.revenue, 0);
+  $("tDiff").textContent = signed(m.result);
+  const same = Math.ceil(Math.max(0, +m.targetPrice.toFixed(2)) / 5) * 5;
+  $("sameTier").dataset.v = same;
+  $("sameTier").textContent = `Set every group to ${trim(same)}`;
 }
 
 function niceStep(span, n) {
@@ -365,7 +529,9 @@ function renderChart(m, need) {
   const be = t => compute({ ...state, tickets: t }).breakEven;
   const pts = []; const n = 80;
   for (let i = 0; i <= n; i++) { const t = Math.round(lo + (hi - lo) * i / n); pts.push([t, be(t)]); }
-  const vals = pts.map(q => q[1]).concat(state.price);
+  const pr = m.avgPrice, tiered = state.mode === "tiered";
+  const prLabel = tiered ? `your rank prices (average ${money(pr)})` : trim(pr);
+  const vals = pts.map(q => q[1]).concat(pr);
   let yMin = Math.min(...vals), yMax = Math.max(...vals);
   const pad = Math.max(1, (yMax - yMin) * .08); yMin -= pad; yMax += pad;
   const ys = niceStep(yMax - yMin, 5);
@@ -385,7 +551,7 @@ function renderChart(m, need) {
   g += `<text x="${(M.l + W - M.r) / 2}" y="${H - 4}" text-anchor="middle">Tickets sold</text>`;
 
   const line = pts.map((q, i) => (i ? "L" : "M") + x(q[0]).toFixed(1) + " " + y(q[1]).toFixed(1)).join("");
-  const py = y(state.price), cx = x(m.T), cy = y(m.breakEven);
+  const py = y(pr), cx = x(m.T), cy = y(m.breakEven);
   let cross = "";
   if (need !== null && need >= lo && need <= hi) cross = `<circle cx="${x(need)}" cy="${py}" r="4" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>`;
 
@@ -399,7 +565,7 @@ function renderChart(m, need) {
     <text class="lab" x="${x(CEILING) - 6}" y="${M.t + 12}" text-anchor="end">Ceiling ${CEILING}</text>
     ${cross}
     <circle cx="${cx}" cy="${cy}" r="5" fill="var(--navy)" stroke="var(--surface)" stroke-width="2"/>
-    <text class="lab" x="${W - M.r}" y="${py - 7}" text-anchor="end">Your price ${trim(state.price)}</text>
+    <text class="lab" x="${W - M.r}" y="${py - 7}" text-anchor="end">${tiered ? `Your average ${money(pr)}` : `Your price ${trim(pr)}`}</text>
     <text class="lab" x="${cx - 10}" y="${cy + 22}" text-anchor="end">${m.T} tickets: ${money(m.breakEven)}</text>
     <g id="hover" visibility="hidden">
       <line id="hl" y1="${M.t}" y2="${H - M.b}" stroke="var(--muted)"/>
@@ -418,34 +584,45 @@ function renderChart(m, need) {
     $("hl").setAttribute("x1", x(t)); $("hl").setAttribute("x2", x(t));
     $("hd").setAttribute("cx", x(t)); $("hd").setAttribute("cy", y(c.breakEven));
     tip.hidden = false;
-    tip.innerHTML = `<b>${t} tickets</b><br>Break-even ${money(c.breakEven)}<br>At ${trim(state.price)}: ${signed(c.result)}`;
+    tip.innerHTML = `<b>${t} tickets</b><br>Break-even ${money(c.breakEven)}<br>${tiered ? "At your rank prices" : `At ${trim(pr)}`}: ${signed(c.result)}`;
     const tw = tip.offsetWidth;
     tip.style.left = (x(t) + 12 + tw > W ? x(t) - tw - 12 : x(t) + 12) + "px";
   });
   hit.addEventListener("pointerleave", () => { hov.setAttribute("visibility", "hidden"); tip.hidden = true; });
 
   $("chartCap").textContent = need === null
-    ? (state.price > state.meal + state.wine + state.gift
-      ? `At ${trim(state.price)} you can't break even within the ${CEILING}-ticket ceiling.`
-      : `At ${trim(state.price)} no ticket count breaks even, because each ticket doesn't cover its own ${money(state.meal + state.wine + state.gift, 0)} in per-guest costs.`)
-    : `At ${trim(state.price)} you break even at ${need.toLocaleString("en-US")} tickets (open circle). Selling fewer pushes the price up because the fixed costs are shared by fewer guests. With the ${CEILING}-ticket ceiling, no price below ${money(compute({ ...state, tickets: CEILING }).breakEven)} can break even.`;
+    ? (pr > state.meal + state.wine + state.gift
+      ? `At ${prLabel} you can't break even within the ${CEILING}-ticket ceiling.`
+      : `At ${prLabel} no ticket count breaks even, because the average ticket doesn't cover its own ${money(state.meal + state.wine + state.gift, 0)} in per-guest costs.`)
+    : `At ${prLabel} you break even at ${need.toLocaleString("en-US")} tickets (open circle). Selling fewer pushes the price up because the fixed costs are shared by fewer guests. With the ${CEILING}-ticket ceiling, no ${tiered ? "average " : ""}price below ${money(compute({ ...state, tickets: CEILING }).breakEven)} can break even.`;
 }
 
 function renderGrid(m) {
   const steps = [-3, -2, -1, 0, 1, 2, 3];
   const ts = [...new Set([380, 430, CHECKPOINT, 530, 580, CEILING, m.T])].sort((a, b) => a - b);
   const tag = t => t === CHECKPOINT ? "<br>checkpoint" : t === CEILING ? "<br>ceiling" : "";
-  const ps = steps.map(s => state.price + s * 5).filter(p => p > 0).reverse();
-  const res = ps.map(p => ts.map(t => compute({ ...state, price: p, tickets: t }).result));
+  const tiered = state.mode === "tiered";
+  $("gridTitle").textContent = tiered ? "Surplus or shortfall by price change and tickets sold" : "Surplus or shortfall by price and tickets sold";
+  $("gridCap").textContent = tiered
+    ? "Each row moves every rank's price by the same amount. The outlined cell is your current scenario. Select any cell to apply its change and ticket count."
+    : "The outlined cell is your current scenario. Select any cell to use its price and ticket count.";
+  const floor = tiered ? Math.min(...state.tiers.map(t => t.price)) : 0;
+  const ps = tiered
+    ? steps.map(s => s * 5).filter(s => floor + s >= 0).reverse()
+    : steps.map(s => state.price + s * 5).filter(p => p > 0).reverse();
+  const scenario = (p, t) => tiered ? { ...state, tiers: shifted(state, p), tickets: t } : { ...state, price: p, tickets: t };
+  const label = p => tiered ? (p === 0 ? "Current" : signed(p)) : trim(p);
+  const isNow = p => tiered ? p === 0 : p === state.price;
+  const res = ps.map(p => ts.map(t => compute(scenario(p, t)).result));
   const peak = Math.max(1, ...res.flat().map(Math.abs));
-  let h = `<thead><tr><th scope="col">Price / Tickets</th>` + ts.map(t => `<th scope="col" class="${t === m.T ? "now" : ""}">${t}${tag(t)}</th>`).join("") + `</tr></thead><tbody>`;
+  let h = `<thead><tr><th scope="col">${tiered ? "Change" : "Price"} / Tickets</th>` + ts.map(t => `<th scope="col" class="${t === m.T ? "now" : ""}">${t}${tag(t)}</th>`).join("") + `</tr></thead><tbody>`;
   ps.forEach((p, i) => {
-    h += `<tr><th scope="row" class="${p === state.price ? "now" : ""}">${trim(p)}</th>`;
+    h += `<tr><th scope="row" class="${isNow(p) ? "now" : ""}">${label(p)}</th>`;
     ts.forEach((t, j) => {
       const v = res[i][j], a = Math.round(Math.abs(v) / peak * 45);
       const col = v >= 0 ? "--gain" : "--loss";
-      const cur = p === state.price && t === m.T;
-      h += `<td><button type="button" class="cell${cur ? " cur" : ""}" data-p="${p}" data-t="${t}" title="${trim(p)} × ${t} tickets: ${signed(v)}" style="background:color-mix(in srgb, var(${col}) ${a}%, var(--surface))">${short(v)}</button></td>`;
+      const cur = isNow(p) && t === m.T;
+      h += `<td><button type="button" class="cell${cur ? " cur" : ""}" data-p="${p}" data-t="${t}" title="${tiered ? `Rank prices: ${label(p)}` : trim(p)} × ${t} tickets: ${signed(v)}" style="background:color-mix(in srgb, var(${col}) ${a}%, var(--surface))">${short(v)}</button></td>`;
     });
     h += `</tr>`;
   });

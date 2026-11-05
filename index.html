@@ -128,15 +128,15 @@ table { border-collapse: collapse; width: 100%; }
 .seg button[aria-pressed="true"] { background: var(--navy); color: var(--surface); }
 .card p.note { color: var(--ink); border-left: 3px solid var(--brass); padding-left: 8px; margin: 0 0 12px; }
 #modelCap { margin: 6px 0 12px; color: var(--muted); max-width: 70ch; }
-#tiers { min-width: 680px; }
-#tiers th, #tiers td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+#tiers { min-width: 820px; }
+#tiers th, #tiers td { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
 #tiers th:first-child, #tiers td:first-child { text-align: left; padding-left: 0; }
-#tiers thead th { font: 600 13px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+#tiers thead th { font: 600 13px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: normal; vertical-align: bottom; }
 #tiers tfoot td { font-weight: 700; border-bottom: 0; }
 #tiers input { background: var(--field); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; padding: 2px 5px; font: inherit; }
-#tiers input[data-f="name"] { width: 150px; font-weight: 600; }
-#tiers input[data-f="share"], #tiers input[type=number][data-f="price"] { width: 66px; text-align: right; }
-#tiers input[type=range] { width: 110px; padding: 0; border: 0; accent-color: var(--navy); margin-left: 6px; }
+#tiers input[data-f="name"] { width: 96px; font-weight: 600; }
+#tiers input[data-f="pop"], #tiers input[data-f="part"], #tiers input[data-f="date"], #tiers input[data-f="guests"], #tiers input[type=number][data-f="price"] { width: 56px; text-align: right; }
+#tiers input[type=range] { width: 50px; padding: 0; border: 0; accent-color: var(--navy); margin-left: 6px; }
 .tier-price { display: flex; align-items: center; justify-content: flex-end; gap: 3px; color: var(--muted); }
 .drop { background: none; border: 0; padding: 2px 6px; color: var(--muted); font-size: 16px; line-height: 1; }
 .drop:hover { color: var(--bad); }
@@ -211,12 +211,13 @@ table { border-collapse: collapse; width: 100%; }
         </div>
         <div id="modelCap"></div>
         <div id="tierPanel" hidden>
-          <p class="note" id="mixNote">The rank groups and shares are placeholders. Replace them with your own figures.</p>
+          <p class="note" id="mixNote" hidden></p>
           <p class="note" id="shareNote" hidden></p>
           <div class="scroll"><table id="tiers"></table></div>
           <div class="tier-actions jumps">
             <button type="button" id="addTier">Add rank group</button>
-            <button type="button" id="fixShares" hidden>Scale shares to 100%</button>
+            <button type="button" id="fixShares" hidden>Scale population to 100%</button>
+            <button type="button" id="useForecast" hidden></button>
             <button type="button" id="sameTier"></button>
           </div>
         </div>
@@ -245,26 +246,44 @@ table { border-collapse: collapse; width: 100%; }
 /* ---------- Model ---------- */
 const VENUE = 11808.67;
 const CEILING = 624, CHECKPOINT = 480;
-const BASE = { baseline:3, tickets:600, price:85, meal:45, wine:2, gift:4, kegs:4, kegPrice:150,
+const BASE = { baseline:4, tickets:600, price:85, meal:45, wine:2, gift:4, kegs:4, kegPrice:150,
   busA:2035, ridersA:50, busG:2475, ridersG:20, busW:2485, ridersW:50, fare:20,
   children:50, childRate:80, childFee:20,
   entertainment:5000, mallets:180, raffle:1200, unplanned:3000,
   vipCount:50, vipPremium:100, donations:5000, surplus:0, rate:1.1179, mode:"single",
-  /* Placeholder groups and mix, not from the worksheet. Every group starts at the baseline price. */
-  tiers:[["E-1 to E-4",30],["E-5 to E-6",25],["E-7 to E-9",12],["WO1 to CW2",2],["CW3 to CW5",1],["O-1 to O-3",10],["O-4 to O-5",4],["O-6 and above",1],["Civilians",15]]
-    .map(([name, weight]) => ({ name, weight, price:85 })) };
+  /* Brigade strength by rank. A blank pop means the group's real share of the brigade; blank rates are still to be estimated.
+     Groups with no total (Civilians, added groups) take a guest count instead. Every group starts at the baseline price. */
+  tiers:[...[["E1-E4",480],["E5-E6",375],["E7-E9",65],["W1-W2",140],["W3-W5",45],["O1-O3",85],["O4-O6",15]]
+    .map(([name, total]) => ({ name, total, pop:null, part:null, date:null, price:85 })),
+    { name:"Civilians", total:null, guests:0, price:85 }] };
 const fresh = () => JSON.parse(JSON.stringify(BASE));
 
 /*MODEL-START*/
 /* Splits T whole tickets across the groups in proportion to their weights (largest remainder). */
-function apportion(tiers, T) {
-  const sum = tiers.reduce((a, t) => a + t.weight, 0);
-  if (sum <= 0) return tiers.map(() => 0);
-  const raw = tiers.map(t => t.weight / sum * T);
+function apportion(weights, T) {
+  const sum = weights.reduce((a, w) => a + w, 0);
+  if (sum <= 0) return weights.map(() => 0);
+  const raw = weights.map(w => w / sum * T);
   const out = raw.map(Math.floor);
   let left = T - out.reduce((a, b) => a + b, 0);
   raw.map((r, i) => [r - out[i], i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).forEach(([, i]) => { if (left-- > 0) out[i]++; });
   return out;
+}
+const population = p => p.tiers.reduce((a, t) => a + (t.total || 0), 0);
+const popPct = (p, t) => t.pop === null ? t.total / population(p) * 100 : t.pop;
+const hasRates = p => p.tiers.some(t => t.total !== null && t.part !== null);
+/* Whole-number attendees from each group's people, participation and dates. */
+function rateCounts(p) {
+  const pop = population(p);
+  return p.tiers.map(t => t.total === null ? t.guests : Math.round(pop * popPct(p, t) / 100 * (t.part || 0) / 100 * (1 + (t.date || 0) / 100)));
+}
+/* The total the rates forecast, or null until a participation rate is entered. */
+const forecast = p => hasRates(p) ? rateCounts(p).reduce((a, b) => a + b, 0) : null;
+/* The mix used to fill T tickets. With no rates yet, tickets left after guest counts follow population. */
+function rankWeights(p, T) {
+  if (hasRates(p)) return rateCounts(p);
+  const left = Math.max(0, T - p.tiers.reduce((a, t) => a + (t.total === null ? t.guests : 0), 0));
+  return p.tiers.map(t => t.total === null ? t.guests : popPct(p, t) / 100 * left);
 }
 function compute(p) {
   const T = Math.max(1, p.tickets);
@@ -295,7 +314,7 @@ function compute(p) {
   const offset = offsets.reduce((s, r) => s + r[2], 0);
   const net = total - offset;
   const tiered = p.mode === "tiered";
-  const counts = tiered ? apportion(p.tiers, T) : [];
+  const counts = tiered ? apportion(rankWeights(p, T), T) : [];
   const revenue = tiered ? p.tiers.reduce((a, t, i) => a + t.price * counts[i], 0) : p.price * T;
   return { T, costs, offsets, total, offset, net, counts, revenue,
     avgPrice: revenue / T,
@@ -337,7 +356,21 @@ if (state.baseline === 2) {
 }
 /* Entries saved before the warrant officer split: the old group becomes two at the same price. */
 state.tiers = state.tiers.flatMap(t => t.name === "WO1 to CW5" ? [{ ...t, name: "WO1 to CW2", weight: Math.round(t.weight * 200 / 3) / 100 }, { ...t, name: "CW3 to CW5", weight: Math.round(t.weight * 100 / 3) / 100 }] : [t]);
+/* Entries saved with percentage shares: rank prices carry over to the brigade groups, and those shares were placeholders. */
+if (state.baseline === 3) {
+  if (state.tiers.some(t => "weight" in t)) {
+    const MAP = { "E-1 to E-4":"E1-E4", "E-5 to E-6":"E5-E6", "E-7 to E-9":"E7-E9", "WO1 to CW2":"W1-W2", "CW3 to CW5":"W3-W5", "O-1 to O-3":"O1-O3", "O-4 to O-5":"O4-O6", "O-6 and above":"O4-O6", "Civilians":"Civilians" };
+    const next = fresh().tiers, old = state.tiers, sum = old.reduce((a, t) => a + t.weight, 0);
+    [...old].reverse().forEach(t => { const to = next.find(n => n.name === MAP[t.name]); if (to) to.price = t.price; });
+    const civ = old.find(t => t.name === "Civilians");
+    if (civ && civ.weight !== 15 && sum > 0) next.find(n => n.name === "Civilians").guests = Math.round(civ.weight / sum * state.tickets);
+    old.filter(t => !MAP[t.name]).forEach(t => next.push({ name: t.name, total: null, guests: sum > 0 ? Math.round(t.weight / sum * state.tickets) : 0, price: t.price }));
+    state.tiers = next;
+  }
+  state.baseline = 4;
+}
 state.tickets = Math.min(state.tickets, CEILING);
+const syncTickets = () => { const f = forecast(state); if (f !== null) state.tickets = Math.min(f, CEILING); };
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
 
 const $ = id => document.getElementById(id);
@@ -369,7 +402,9 @@ document.addEventListener("input", e => {
     if (f === "name") { tier.name = e.target.value; save(); return; }
     const v = Math.max(0, parseFloat(e.target.value) || 0);
     if (f === "price") { tier.price = v; render(e.target); return; }
-    tier.weight = v;
+    if (f === "guests") tier.guests = Math.round(v);
+    else tier[f] = e.target.value === "" ? null : v;
+    syncTickets();
     render(e.target);
     return;
   }
@@ -397,23 +432,28 @@ document.addEventListener("click", e => {
     /* Rank prices that are all still equal pick up the current single price. */
     if (mode === "tiered" && state.tiers.every(t => t.price === state.tiers[0].price)) state.tiers.forEach(t => { t.price = state.price; });
     state.mode = mode;
+    if (mode === "tiered") syncTickets();
     render();
   }
   const drop = e.target.dataset && e.target.dataset.drop;
   if (drop !== undefined) {
     state.tiers.splice(+drop, 1);
+    syncTickets();
     render();
   }
 });
 $("addTier").addEventListener("click", () => {
-  state.tiers.push({ name: "New group", weight: 0, price: Math.round(compute(state).avgPrice) });
+  state.tiers.push({ name: "New group", total: null, guests: 0, price: Math.round(compute(state).avgPrice) });
   render();
 });
 $("fixShares").addEventListener("click", () => {
-  const sum = state.tiers.reduce((a, t) => a + t.weight, 0);
-  if (sum > 0) state.tiers.forEach(t => { t.weight = Math.round(t.weight / sum * 10000) / 100; });
+  const ranks = state.tiers.filter(t => t.total !== null);
+  const pcts = ranks.map(t => popPct(state, t)), sum = pcts.reduce((a, b) => a + b, 0);
+  if (sum > 0) ranks.forEach((t, i) => { t.pop = Math.round(pcts[i] / sum * 10000) / 100; });
+  syncTickets();
   render();
 });
+$("useForecast").addEventListener("click", () => { syncTickets(); render(); });
 $("sameTier").addEventListener("click", e => { state.tiers.forEach(t => { t.price = +e.target.dataset.v; }); render(); });
 $("reset").addEventListener("click", () => { state = fresh(); render(); });
 $("round").addEventListener("click", e => {
@@ -434,7 +474,7 @@ function render(from) {
     if (num !== from) num.value = state[k];
     if (rng !== from) rng.value = state[k];
     const changed = state[k] !== BASE[k];
-    was.hidden = !changed;
+    was.hidden = !changed || (k === "tickets" && tiered);
     if (changed) was.textContent = `Reset to ${UNITS[k]}${BASE[k].toLocaleString("en-US")}`;
   });
   if ($("price") !== from) $("price").value = state.price;
@@ -494,44 +534,59 @@ function render(from) {
 function renderModel(m, tiered, from) {
   $("tierPanel").hidden = !tiered;
   $("modelCap").textContent = tiered
-    ? `Set a price and a share of attendance for each group. "Against break-even" compares each group's ticket sales with an equal share of the net cost, ${money(m.breakEven)} a ticket. Guests are worked out from the shares and tickets sold.`
+    ? `Attendees are the people in a group × % of population × participation, plus their dates, as whole numbers. Dates pay their group's price. "Against break-even" compares each group's ticket sales with an equal share of the net cost, ${money(m.breakEven)} a ticket.`
     : "Everyone pays the same price. Switch to By rank to price each rank and civilians separately.";
   if (!tiered) return;
-  const unchanged = state.tiers.length === BASE.tiers.length && state.tiers.every((t, i) => t.name === BASE.tiers[i].name && t.weight === BASE.tiers[i].weight);
-  $("mixNote").hidden = !unchanged;
   const table = $("tiers");
   if (table.querySelectorAll("tbody tr").length !== state.tiers.length) {
-    table.innerHTML = `<thead><tr><th scope="col">Group</th><th scope="col">Share</th><th scope="col">Guests</th><th scope="col">Ticket price</th><th scope="col">Ticket sales</th><th scope="col">Against break-even</th><th scope="col" aria-label="Remove"></th></tr></thead><tbody>`
-      + state.tiers.map((_, i) => `<tr data-tier="${i}">
+    table.innerHTML = `<thead><tr><th scope="col">Group</th><th scope="col">Total in category</th><th scope="col">% of population</th><th scope="col">Likely participation</th><th scope="col">% who bring date</th><th scope="col">Attendees with dates</th><th scope="col">Ticket price</th><th scope="col">Ticket sales</th><th scope="col">Against break-even</th><th scope="col" aria-label="Remove"></th></tr></thead><tbody>`
+      + state.tiers.map((t, i) => `<tr data-tier="${i}">
         <td><input data-f="name" type="text" aria-label="Group ${i + 1} name"></td>
-        <td><div class="tier-price"><input data-f="share" type="number" min="0" step="any" inputmode="decimal" aria-label="Group ${i + 1} share of attendance, percent">%</div></td>
-        <td data-o="guests"></td>
+        ${t.total === null
+          ? `<td>–</td><td>–</td><td>–</td><td>–</td><td><input data-f="guests" type="number" min="0" step="1" inputmode="numeric" aria-label="Group ${i + 1} attendees"></td>`
+          : `<td data-o="total"></td>${[["pop", "percent of population"], ["part", "likely participation, percent"], ["date", "percent who bring a date"]].map(([f, a]) => `<td><div class="tier-price"><input data-f="${f}" type="number" min="0" step="any" inputmode="decimal" aria-label="Group ${i + 1} ${a}">%</div></td>`).join("")}<td data-o="guests"></td>`}
         <td><div class="tier-price">€<input data-f="price" type="number" min="0" step="any" inputmode="decimal" aria-label="Group ${i + 1} ticket price"><input data-f="price" type="range" min="0" max="250" step="1" aria-label="Group ${i + 1} ticket price slider" tabindex="-1"></div></td>
         <td data-o="sales"></td>
         <td data-o="diff"></td>
         <td><button class="drop" type="button" data-drop="${i}" aria-label="Remove group ${i + 1}" title="Remove group">×</button></td>
       </tr>`).join("")
-      + `</tbody><tfoot><tr><td>Total</td><td id="tShare"></td><td id="tTotal"></td><td id="tAvg"></td><td id="tSales"></td><td id="tDiff"></td><td></td></tr></tfoot>`;
+      + `</tbody><tfoot><tr><td>Total</td><td id="tPop"></td><td id="tShare"></td><td></td><td></td><td id="tTotal"></td><td id="tAvg"></td><td id="tSales"></td><td id="tDiff"></td><td></td></tr></tfoot>`;
   }
   const set = (el, v) => { if (el !== from) el.value = v; };
   table.querySelectorAll("tbody tr").forEach((row, i) => {
     const t = state.tiers[i], n = m.counts[i];
     set(row.querySelector('[data-f="name"]'), t.name);
-    set(row.querySelector('[data-f="share"]'), t.weight);
+    if (t.total !== null) {
+      row.querySelector('[data-o="total"]').textContent = t.total.toLocaleString("en-US");
+      set(row.querySelector('[data-f="pop"]'), t.pop === null ? Math.round(popPct(state, t)) : t.pop);
+      set(row.querySelector('[data-f="part"]'), t.part === null ? "" : t.part);
+      set(row.querySelector('[data-f="date"]'), t.date === null ? "" : t.date);
+      row.querySelector('[data-o="guests"]').textContent = n;
+    } else set(row.querySelector('[data-f="guests"]'), t.guests);
     row.querySelectorAll('[data-f="price"]').forEach(el => set(el, t.price));
-    row.querySelector('[data-o="guests"]').textContent = n;
     row.querySelector('[data-o="sales"]').textContent = money(t.price * n, 0);
     row.querySelector('[data-o="diff"]').textContent = signed((t.price - m.breakEven) * n);
-    row.querySelector(".drop").hidden = state.tiers.length < 2;
+    row.querySelector(".drop").hidden = t.total !== null;
   });
-  const shareSum = state.tiers.reduce((a, t) => a + t.weight, 0);
+  const ranks = state.tiers.filter(t => t.total !== null);
+  const shareSum = ranks.reduce((a, t) => a + popPct(state, t), 0);
   const shareText = +shareSum.toFixed(1) + "%";
   const off = Math.abs(shareSum - 100) >= 0.1;
+  const pop = population(state);
+  $("tPop").textContent = pop.toLocaleString("en-US");
   $("tShare").textContent = shareText;
   $("shareNote").hidden = !off;
-  $("shareNote").textContent = shareSum > 0
-    ? `Shares add up to ${shareText}, so the guest counts scale them to fill all ${m.T} tickets.`
-    : "Give at least one group a share. No tickets are assigned until you do.";
+  $("shareNote").textContent = `% of population adds up to ${shareText}, so these groups count as ${Math.round(pop * shareSum / 100).toLocaleString("en-US")} people against the ${pop.toLocaleString("en-US")} in the brigade.`;
+  const f = forecast(state), blank = ranks.filter(t => t.part === null).length;
+  const mix = f === null ? `Enter a likely participation rate for each group. Until you do, the ${m.T} tickets are split by % of population.`
+    : f > CEILING && state.tickets === CEILING ? `These rates forecast ${f.toLocaleString("en-US")} attendees, over the ${CEILING} ceiling, so each group is scaled down to fit.`
+    : f !== state.tickets ? `These rates forecast ${f.toLocaleString("en-US")} attendees. Tickets sold is set to ${state.tickets}, so each group is scaled to fit.`
+    : blank ? `${blank} ${blank === 1 ? "group has" : "groups have"} no participation rate yet and ${blank === 1 ? "counts" : "count"} as 0 attendees.` : "";
+  $("mixNote").textContent = mix;
+  $("mixNote").hidden = !mix;
+  const canUse = f !== null && f !== state.tickets && f <= CEILING;
+  $("useForecast").hidden = !canUse;
+  $("useForecast").textContent = `Use the forecast of ${f} tickets`;
   $("fixShares").hidden = !off || shareSum <= 0;
   $("tTotal").textContent = m.counts.reduce((a, b) => a + b, 0);
   $("tAvg").textContent = money(m.avgPrice) + " avg";

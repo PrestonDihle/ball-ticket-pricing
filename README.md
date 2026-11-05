@@ -17,10 +17,13 @@ The ticket price in the top band also shows in US dollars. The rate starts at $1
 
 ## Pricing by rank
 
-Switch the Pricing model card to **By rank** to set a separate price and share of attendance for each rank group and for civilians. Groups can be renamed, added or removed.
+Switch the Pricing model card to **By rank** to estimate attendance and set a separate price for each rank group and for civilians. Added groups and Civilians can be removed. The brigade's rank groups stay.
 
-- **Placeholders:** the worksheet has no rank data, so the starting groups and shares are placeholders. Every group starts at the current single price, which gives the same result as one price.
-- **Shares:** each group's share is a percentage of tickets sold, and guest counts are worked out from it, rounded to whole guests. If the shares don't add up to 100%, the page says so, scales them in proportion so every ticket is counted, and offers a button to rewrite them to 100%.
+- **Brigade totals:** the 1,205 people across seven groups are fixed: E1-E4 480, E5-E6 375, E7-E9 65, W1-W2 140, W3-W5 45, O1-O3 85 and O4-O6 15.
+- **Attendees:** brigade total × % of population × likely participation × (1 + % who bring a date), rounded to a whole number. Dates pay their group's price. % of population starts at each group's real share, and clearing an edited value restores it. If the shares don't add up to 100%, the page says so and offers a button to scale them.
+- **Tickets sold:** follows the attendee total once a participation rate is entered. A total over the 624 ceiling is scaled down to fit. Moving tickets sold or jumping to 480 scales each group the same way, and a button returns to the forecast.
+- **Estimates to enter:** participation and date rates start blank. Until a participation rate is entered, tickets sold are split by % of population. A blank date rate counts as 0%.
+- **Civilians:** they aren't in the brigade totals, so they take a typed attendee count, starting at 0. Added groups work the same way.
 - **VIP extra charge:** this still applies on top of rank prices, so set VIP guests to 0 if a rank price already includes it.
 
 ## How the worksheet was read
